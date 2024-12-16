@@ -219,7 +219,39 @@ python /workspace/bionemo2/sub-packages/bionemo-esm2/src/bionemo/esm2/model/fine
 3. We are using a small dataset of artificial sequences as our fine-tuning data in this example. You may experience over-fitting and observe no change in the validation metrics.
 
 # Fine-Tuned ESM-2 Model Inference
-Once we have a checkpoint we can create a config object by pointing the path in `initial_ckpt_path` and use that for inference. Since we need to load all the parameters from this checkpoint (and don't skip the head) we reset the `nitial_ckpt_skip_keys_with_these_prefixes` in this config. Now we can use the ```bionemo.esm2.model.fnetune.train.infer``` to run inference on prediction dataset.
+Now we can use ```bionemo.esm2.model.finetune.train.infer``` to run inference on an example prediction dataset.
+Record the checkpoint path reported at the end of the finetuning run, after executing `python -m bionemo.esm2.model.finetune.train` (e.g. `/tmp/tmp1b5wlnba/finetune_regressor/checkpoints/finetune_regressor--reduced_train_loss=0.0016-epoch=0-last`) and use that as an argument to inference script (`--checkpoint-path`).
+
+We download a CSV example dataset of articical sequences for this inference example. Please refer to [ESM-2 Inference](./inference) tutorial for detailed explanation of the arguments and how to create your own CSV file.
+
+```bash
+mkdir -p $WORKDIR/esm2_finetune_tutorial
+
+# download sample data CSV for inference
+DATA_PATH=$(download_bionemo_data esm2/testdata_esm2_infer:2.0)
+RESULTS_PATH=$WORKDIR/esm2_finetune_tutorial/
+
+infer_esm2 --checkpoint-path <finetune checkpoint path> \
+           --data-path $DATA_PATH \
+           --results-path $RESULTS_PATH \
+           --config-class ESM2FineTuneSeqConfig
+```
+
+This will create a result `.pt` file under `$WORKDIR/esm2_finetune_tutorial/predictions__rank_0.pt` which can be loaded via PyTorch library in python environment:
+
+```python
+import torch
+
+# Set the path to results file e.g. /workspace/bionemo2/esm2_finetune_tutorial/predictions__rank_0.pt
+# results_path = /workspace/bionemo2/esm2_finetune_tutorial/predictions__rank_0.pt
+results = torch.load(results_path)
+
+# results is a python dict which includes the following result tensors for this example:
+# results['regression_output'] is a tensor with shape: torch.Size([10, 1])
+```
+
+## Notes
+- ESM2 Inference module takes the `--checkpoint-path` and `--config-class` arguments to create a config object by pointing the path in `initial_ckpt_path`. Since we need to load all the parameters from this checkpoint (and don't skip the head) we reset the `initial_ckpt_skip_keys_with_these_prefixes` in this config.
 
 ```python
 config = ESM2FineTuneSeqConfig(
