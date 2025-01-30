@@ -14,6 +14,7 @@
 # limitations under the License.
 
 
+import logging
 from dataclasses import dataclass
 from typing import Callable, Literal, Optional, Sequence, Type, TypeVar
 
@@ -85,6 +86,7 @@ class AMPLIFYModel(MegatronBioBertModel):
         add_binary_head: bool = True,
         return_embeddings: bool = False,
         include_embeddings: bool = False,
+        include_input_ids: bool = False,
         use_full_attention_mask: bool = False,
         include_hiddens: bool = False,
         skip_logits: bool = False,
@@ -111,6 +113,7 @@ class AMPLIFYModel(MegatronBioBertModel):
             add_binary_head (bool): Whether to add a binary head. Defaults to True.
             return_embeddings (bool): Whether to return embeddings. Defaults to False.
             include_embeddings (bool): Whether to include embeddings in the output dictionary. Defaults to False.
+            include_input_ids (bool): Whether to include input_ids in the output dictionary. Defaults to False.
             use_full_attention_mask (bool): Whether to use full attention mask. Defaults to False.
             include_hiddens (bool): Whether to include hidden states in the output dictionary. Defaults to False.
             skip_logits (bool): Skip writing the token logits in output dict
@@ -138,11 +141,21 @@ class AMPLIFYModel(MegatronBioBertModel):
         self.return_embeddings = return_embeddings
         self.include_embeddings = include_embeddings
         self.include_hiddens = include_hiddens
+        self.include_input_ids = include_input_ids
         self.skip_logits = skip_logits
 
         # megatron core pipelining currently depends on model type
         self.model_type = ModelType.encoder_or_decoder
 
+        if config.gated_linear_unit:
+            # To keep the number of parameters and the amount of computation constant, we reduce the number of
+            # hidden units by a factor of 2/3 (https://arxiv.org/pdf/2002.05202.pdf) and make it a multiple of 8 to
+            # avoid RuntimeError due to misaligned operand
+            multiple_of = 8
+            config.ffn_hidden_size = int(2 * config.ffn_hidden_size / 3)
+            config.ffn_hidden_size = multiple_of * ((config.ffn_hidden_size + multiple_of - 1) // multiple_of)
+            self.config.ffn_hidden_size = config.ffn_hidden_size
+            
         # Embeddings.
         if self.pre_process:
             self.register_buffer(
@@ -328,21 +341,22 @@ class AMPLIFYConfig(BioBertConfig[AMPLIFYModelT, MegatronLossType], iom.IOMixinW
     #  things as part of the workflow for inference and fine-tuning.
     return_embeddings: bool = False
     include_embeddings: bool = False
+    include_input_ids: bool = False
     skip_logits: bool = False
     return_only_hidden_states: bool = False  # return logits
 
     def __post_init__(self):
         """Check compatibility between biobert_spec_option and apply_query_key_layer_scaling post initialization."""
         super().__post_init__()
+        
         if self.biobert_spec_option == BiobertSpecOption.esm2_bert_layer_with_transformer_engine_spec:
             self.apply_query_key_layer_scaling = False
-            self.core_attention_override = ESM2TEDotProductAttention #TODO: ynashed: verify if this is needed
-            if self.gated_linear_unit:
-                # To keep the number of parameters and the amount of computation constant, we reduce the number of
-                # hidden units by a factor of 2/3 (https://arxiv.org/pdf/2002.05202.pdf) and make it a multiple of 8 to
-                # avoid RuntimeError due to misaligned operand
-                multiple_of = 8
-                self.ffn_hidden_size = int(2 * self.ffn_hidden_size / 3)
-                self.ffn_hidden_size = multiple_of * ((self.ffn_hidden_size + multiple_of - 1) // multiple_of)
+        elif self.biobert_spec_option == BiobertSpecOption.esm2_bert_layer_local_spec:
+            logging.warning(
+                "BiobertSpecOption.esm2_bert_layer_local_spec is depreciated. Use BiobertSpecOption.esm2_bert_layer_with_transformer_engine_spec instead."
+            )
+            self.apply_query_key_layer_scaling = True
         else:
             raise ValueError(f"Unknown biobert_spec_option: {self.biobert_spec_option}")
+        
+        self.core_attention_override = ESM2TEDotProductAttention
