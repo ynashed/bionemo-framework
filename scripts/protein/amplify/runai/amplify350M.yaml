@@ -6,14 +6,14 @@ metadata:
   name: pretrain-amplify-350m
 spec:
   elasticPolicy:
-    maxReplicas: 4
+    maxReplicas: 8
     maxRestarts: 10
-    minReplicas: 4
+    minReplicas: 8
     nProcPerNode: 8
     rdzvBackend: c10d
   pytorchReplicaSpecs:
     Worker:
-      replicas: 4
+      replicas: 8
       restartPolicy: OnFailure
       template:
         metadata:
@@ -34,13 +34,7 @@ spec:
                 git clone https://github.com/ynashed/bionemo-framework &&\
                 cd bionemo-framework &&\
                 git checkout ynashed/amplify/runai &&\
-                cd sub-packages/bionemo-esm2/ &&\
-                pip install -e . &&\
-                cd ../../sub-packages/bionemo-amplify/ &&\
-                pip install -e . &&\
-                cd ../../sub-packages/bionemo-llm/ &&\
-                pip install -e .  &&\
-                cd ../../sub-packages/bionemo-core/ &&\
+                cd sub-packages/bionemo-amplify/ &&\
                 pip install -e . &&\
                 cd ../.. &&\
                 ( \
@@ -51,9 +45,9 @@ spec:
                   --wandb-project amplify_pretrain \
                   --wandb-log-model \
                   --num-gpus 8  \
-                  --num-nodes 4 \
+                  --num-nodes 8 \
                   --random-mask-strategy all_tokens\
-                  --accumulate-grad-batches 2 \
+                  --accumulate-grad-batches 1 \
                   --micro-batch-size 64 \
                   --lr 1.0e-3 \
                   --num-layers 32 \
@@ -100,7 +94,7 @@ spec:
           volumes:
           - name: ur100p
             persistentVolumeClaim:
-              claimName: ur100p-project-kht81
+              claimName: ur100p-project-zxmql
           schedulerName: runai-scheduler
   runPolicy:
     backoffLimit: 10

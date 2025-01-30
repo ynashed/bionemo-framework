@@ -34,20 +34,14 @@ spec:
                 git clone https://github.com/ynashed/bionemo-framework &&\
                 cd bionemo-framework &&\
                 git checkout ynashed/amplify/runai &&\
-                cd sub-packages/bionemo-esm2/ &&\
-                pip install -e . &&\
-                cd ../../sub-packages/bionemo-amplify/ &&\
-                pip install -e . &&\
-                cd ../../sub-packages/bionemo-llm/ &&\
-                pip install -e .  &&\
-                cd ../../sub-packages/bionemo-core/ &&\
+                cd sub-packages/bionemo-amplify/ &&\
                 pip install -e . &&\
                 cd ../.. &&\
                 ( \
                   torchrun scripts/protein/amplify/amplify_pretrain.py  \
                   --hf-dataset-name chandar-lab/UR100P   \
                   --result-dir /home/local/.cache     \
-                  --experiment-name 32GPU_pretrain_mask_strategy_all_tokens   \
+                  --experiment-name amplify120M   \
                   --wandb-project amplify_pretrain \
                   --num-gpus 8  \
                   --num-nodes 4 \
@@ -94,7 +88,7 @@ spec:
           volumes:
           - name: ur100p
             persistentVolumeClaim:
-              claimName: ur100p-project-kht81
+              claimName: ur100p-project-zxmql
           schedulerName: runai-scheduler
   runPolicy:
     backoffLimit: 10
