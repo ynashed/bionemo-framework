@@ -28,6 +28,11 @@ class BioNeMoAMPLIFYTokenizer(AutoTokenizer, IOMixin):  # noqa D101
         for attr in dir(other):
             if not attr.startswith("_"):
                 setattr(self, attr, getattr(other, attr))
+        #In case PreTrainedTokenizer is inherited and special token IDs are not in dir
+        if hasattr(other, "mask_token_id"):
+            setattr(self, "mask_token_id", getattr(other, "mask_token_id"))
+        if hasattr(other, "pad_token_id"):
+            setattr(self, "pad_token_id", getattr(other, "pad_token_id"))
 
 
 @functools.cache
